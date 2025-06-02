@@ -1,0 +1,21 @@
+{
+	"name": "msgpinningdiscordbot",
+	"version": "1.0.0",
+	"description": "Discord bot that pins the previous message",
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "tsc",
+		"start": "node dist/index.js",
+		"dev": "ts-node src/index.ts",
+		"watch": "tsc -w"
+	},
+	"dependencies": {
+		"discord.js": "^14.14.1",
+		"dotenv": "^16.3.1"
+	},
+	"devDependencies": {
+		"@types/node": "^20.10.0",
+		"ts-node": "^10.9.1",
+		"typescript": "^5.3.2"
+	}
+}
