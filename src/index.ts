@@ -23,7 +23,18 @@ const commands = [
 
 // REST APIクライアントを作成
 const rest = new REST({ version: "10" }).setToken(TOKEN);
-
+function logCommandExecution(interaction: ChatInputCommandInteraction) {
+	// コマンドを実行したユーザー情報を取得
+	const user = interaction.user;
+	// 実行されたコマンド名を取得
+	const command = interaction.commandName;
+	// コマンドが実行されたチャンネルIDを取得（DMの場合は"DM"と表示）
+	const channel = interaction.channel?.id ?? "DM";
+	// コマンドが実行されたサーバー（ギルド）IDを取得（DMの場合は"DM"と表示）
+	const guild = interaction.guild?.id ?? "DM";
+	// ログとしてコマンド実行情報を出力
+	console.log(`[COMMAND LOG] User: ${user.tag} (${user.id}), Command: /${command}, Guild: ${guild}, Channel: ${channel}`);
+}
 // スラッシュコマンドを登録する関数
 async function registerCommands() {
 	try {
@@ -182,6 +193,9 @@ async function handlePinCommand(interaction: ChatInputCommandInteraction) {
 			content: errorMessage,
 			ephemeral: true,
 		});
+	} finally {
+		// コマンドメッセージの取得
+		logCommandExecution(interaction);
 	}
 }
 
@@ -253,6 +267,9 @@ async function handleUnpinCommand(interaction: ChatInputCommandInteraction) {
 			content: "❌ ピン留めの解除に失敗しました。",
 			ephemeral: true,
 		});
+	} finally {
+		// コマンドメッセージの取得
+		logCommandExecution(interaction);
 	}
 }
 
