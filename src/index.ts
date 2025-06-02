@@ -10,9 +10,15 @@ const TOKEN = process.env.DISCORD_TOKEN!;
 
 // スラッシュコマンドを定義
 const commands = [
-	new SlashCommandBuilder().setName("pin").setDescription("直前のメッセージをピン留めします"),
+	new SlashCommandBuilder()
+		.setName("pin")
+		.setDescription("メッセージをピン留めします")
+		.addStringOption((option) => option.setName("message_link").setDescription("ピン留めするメッセージのリンク（省略時は直前のメッセージ）").setRequired(false)),
 
-	new SlashCommandBuilder().setName("unpin").setDescription("直前のメッセージのピン留めを解除します"),
+	new SlashCommandBuilder()
+		.setName("unpin")
+		.setDescription("メッセージのピン留めを解除します")
+		.addStringOption((option) => option.setName("message_link").setDescription("ピン留めを解除するメッセージのリンク（省略時は直前のメッセージ）").setRequired(false)),
 ];
 
 // REST APIクライアントを作成
@@ -64,7 +70,48 @@ client.on("interactionCreate", async (interaction) => {
 	}
 });
 
-// ピン留めコマンドの処理
+// メッセージリンクを解析する関数
+function parseMessageLink(messageLink: string): { guildId: string; channelId: string; messageId: string } | null {
+	// Discord メッセージリンクの形式: https://discord.com/channels/GUILD_ID/CHANNEL_ID/MESSAGE_ID
+	const linkRegex = /https:\/\/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
+	const match = messageLink.match(linkRegex);
+
+	if (!match) {
+		return null;
+	}
+
+	return {
+		guildId: match[1],
+		channelId: match[2],
+		messageId: match[3],
+	};
+}
+
+// 指定されたメッセージを取得する関数
+async function getMessageFromLink(client: Client, messageLink: string) {
+	const parsedLink = parseMessageLink(messageLink);
+
+	if (!parsedLink) {
+		throw new Error("無効なメッセージリンクです。正しい形式: https://discord.com/channels/SERVER_ID/CHANNEL_ID/MESSAGE_ID");
+	}
+
+	try {
+		const guild = await client.guilds.fetch(parsedLink.guildId);
+		const channel = await guild.channels.fetch(parsedLink.channelId);
+
+		if (!(channel instanceof TextChannel)) {
+			throw new Error("指定されたチャンネルはテキストチャンネルではありません。");
+		}
+
+		const message = await channel.messages.fetch(parsedLink.messageId);
+		return message;
+	} catch (error) {
+		if (error instanceof Error && error.message.includes("Unknown")) {
+			throw new Error("メッセージが見つかりません。リンクが正しいか、BOTがそのサーバー・チャンネルにアクセスできるか確認してください。");
+		}
+		throw error;
+	}
+}
 async function handlePinCommand(interaction: ChatInputCommandInteraction) {
 	try {
 		// チャンネルがテキストチャンネルかどうか確認
@@ -141,31 +188,47 @@ async function handlePinCommand(interaction: ChatInputCommandInteraction) {
 // アンピンコマンドの処理
 async function handleUnpinCommand(interaction: ChatInputCommandInteraction) {
 	try {
-		if (!(interaction.channel instanceof TextChannel)) {
-			await interaction.reply({
-				content: "このコマンドはテキストチャンネルでのみ使用できます。",
-				ephemeral: true,
+		const messageLink = interaction.options.getString("message_link");
+		let targetMessage;
+
+		if (messageLink) {
+			// メッセージリンクが指定された場合
+			try {
+				targetMessage = await getMessageFromLink(interaction.client, messageLink);
+			} catch (error) {
+				await interaction.reply({
+					content: error instanceof Error ? error.message : "❌ メッセージの取得に失敗しました。",
+					ephemeral: true,
+				});
+				return;
+			}
+		} else {
+			// メッセージリンクが指定されていない場合（従来の動作）
+			if (!(interaction.channel instanceof TextChannel)) {
+				await interaction.reply({
+					content: "このコマンドはテキストチャンネルでのみ使用できます。",
+					ephemeral: true,
+				});
+				return;
+			}
+
+			const messages = await interaction.channel.messages.fetch({
+				limit: 1,
+				before: interaction.id,
 			});
-			return;
+
+			targetMessage = messages.first();
+
+			if (!targetMessage) {
+				await interaction.reply({
+					content: "アンピンするメッセージが見つかりません。",
+					ephemeral: true,
+				});
+				return;
+			}
 		}
 
-		// 直前のメッセージを取得
-		const messages = await interaction.channel.messages.fetch({
-			limit: 1,
-			before: interaction.id,
-		});
-
-		const previousMessage = messages.first();
-
-		if (!previousMessage) {
-			await interaction.reply({
-				content: "アンピンするメッセージが見つかりません。",
-				ephemeral: true,
-			});
-			return;
-		}
-
-		if (!previousMessage.pinned) {
+		if (!targetMessage.pinned) {
 			await interaction.reply({
 				content: "そのメッセージはピン留めされていません。",
 				ephemeral: true,
@@ -174,10 +237,14 @@ async function handleUnpinCommand(interaction: ChatInputCommandInteraction) {
 		}
 
 		// ピン留めを解除
-		await previousMessage.unpin();
+		await targetMessage.unpin();
+
+		const messagePreview = targetMessage.content.substring(0, 50);
+		const truncated = targetMessage.content.length > 50 ? "..." : "";
+		const channelMention = `<#${targetMessage.channel.id}>`;
 
 		await interaction.reply({
-			content: "📌 ピン留めを解除しました！",
+			content: `📌 ピン留めを解除しました！\n📍 チャンネル: ${channelMention}\n💬 内容: ${messagePreview}${truncated}`,
 			ephemeral: true,
 		});
 	} catch (error) {
