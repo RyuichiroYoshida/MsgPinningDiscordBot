@@ -27,6 +27,8 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 async function logCommandExecution(interaction: ChatInputCommandInteraction) {
 	// コマンドを実行したユーザー情報を取得
 	const user = interaction.user;
+	// ユーザーのニックネームを取得（サーバー内でのニックネーム、DMではnull）
+	const nickname = interaction.member && "nickname" in interaction.member ? interaction.member.nickname : null;
 	// 実行されたコマンド名を取得
 	const command = interaction.commandName;
 	// コマンドが実行されたチャンネルIDを取得（DMの場合は"DM"と表示）
@@ -41,9 +43,9 @@ async function logCommandExecution(interaction: ChatInputCommandInteraction) {
 	const guild = interaction.guild?.name ?? "DM";
 	// コマンドのオプションからメッセージリンクを取得
 	const opt = interaction.options?.getString("message_link");
-	const logMessage = `[COMMAND LOG] ユーザー名: ${user.tag}, ユーザーID: ${user.id}, コマンド: /${command}, サーバー: ${guild}, チャンネル: ${channel ? channel : "なし"}, オプション: ${
-		opt ? opt : "なし"
-	}`;
+	const logMessage = `[COMMAND LOG] ユーザー名: ${nickname ?? user.username}, ユーザーID: ${user.id}, コマンド: /${command}, サーバー: ${guild}, チャンネル: ${
+		channel ? channel : "なし"
+	}, オプション: ${opt ? opt : "なし"}`;
 
 	// ログとしてコマンド実行情報を出力
 	console.log(logMessage);
