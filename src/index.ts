@@ -1,3 +1,4 @@
+import { log } from "console";
 import { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, ChatInputCommandInteraction, TextChannel } from "discord.js";
 import * as dotenv from "dotenv";
 
@@ -289,56 +290,9 @@ async function handleUnpinCommand(interaction: ChatInputCommandInteraction) {
 	}
 }
 
-// 通常のメッセージ処理（!pin コマンドも残す）
+// 通常のメッセージ処理
 client.on("messageCreate", async (message) => {
 	if (message.author.bot) return;
-
-	// テキストコマンドも残しておく
-	if (message.content === "!pin") {
-		try {
-			if (!(message.channel instanceof TextChannel)) {
-				await message.reply("このコマンドはテキストチャンネルでのみ使用できます。");
-				return;
-			}
-
-			const messages = await message.channel.messages.fetch({
-				limit: 2,
-				before: message.id,
-			});
-
-			const previousMessage = messages.first();
-
-			if (!previousMessage) {
-				await message.reply("ピン留めするメッセージが見つかりません。");
-				return;
-			}
-
-			if (previousMessage.author.bot) {
-				await message.reply("BOTのメッセージはピン留めできません。");
-				return;
-			}
-
-			if (previousMessage.pinned) {
-				await message.reply("そのメッセージは既にピン留めされています。");
-				return;
-			}
-
-			await previousMessage.pin();
-			await message.reply(`✅ メッセージをピン留めしました！`);
-
-			// コマンドメッセージを削除
-			setTimeout(async () => {
-				try {
-					await message.delete();
-				} catch (error) {
-					console.log("コマンドメッセージの削除に失敗しました:", error);
-				}
-			}, 3000);
-		} catch (error) {
-			console.error("ピン留めエラー:", error);
-			await message.reply("❌ ピン留めに失敗しました。");
-		}
-	}
 });
 
 // BOTにログイン
