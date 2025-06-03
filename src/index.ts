@@ -1,4 +1,3 @@
-import { log } from "console";
 import { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, ChatInputCommandInteraction, TextChannel } from "discord.js";
 import * as dotenv from "dotenv";
 
@@ -20,10 +19,16 @@ const commands = [
 		.setName("unpin")
 		.setDescription("メッセージのピン留めを解除します")
 		.addStringOption((option) => option.setName("message_link").setDescription("ピン留めを解除するメッセージのリンク（省略時は直前のメッセージ）").setRequired(false)),
+
+	new SlashCommandBuilder()
+		.setName("check-channel-name")
+		.setDescription("チャンネルIDから、チャンネル名を確認します")
+		.addStringOption((option) => option.setName("channel_id").setDescription("チャンネルIDを入力してください").setRequired(true)),
 ];
 
 // REST APIクライアントを作成
 const rest = new REST({ version: "10" }).setToken(TOKEN);
+
 async function logCommandExecution(interaction: ChatInputCommandInteraction) {
 	// コマンドを実行したユーザー情報を取得
 	const user = interaction.user;
@@ -32,8 +37,10 @@ async function logCommandExecution(interaction: ChatInputCommandInteraction) {
 	// コマンドが実行されたチャンネルIDを取得（DMの場合は"DM"と表示）
 	const channel = interaction.channel?.id ?? "DM";
 	// コマンドが実行されたサーバー（ギルド）IDを取得（DMの場合は"DM"と表示）
-	const guild = interaction.guild?.id ?? "DM";
-	const logMessage = `[COMMAND LOG] User: ${user.tag} (${user.id}), Command: /${command}, Guild: ${guild}, Channel: ${channel}`;
+	const guild = interaction.guild?.name ?? "DM";
+	// コマンドのオプションからメッセージリンクを取得
+	const opt = interaction.options?.getString("message_link");
+	const logMessage = `[COMMAND LOG] ユーザー名: ${user.tag}, ユーザーID: ${user.id}, コマンド: /${command}, サーバー: ${guild}, チャンネルID: ${channel}, オプション: ${opt ? opt : "なし"}`;
 
 	// ログとしてコマンド実行情報を出力
 	console.log(logMessage);
@@ -95,6 +102,29 @@ client.on("interactionCreate", async (interaction) => {
 		await handlePinCommand(interaction);
 	} else if (commandName === "unpin") {
 		await handleUnpinCommand(interaction);
+	} else if (commandName === "check-channel-name") {
+		const channelId = interaction.options.getString("channel_id");
+		if (!channelId) {
+			await interaction.reply({
+				content: "チャンネルIDを指定してください。",
+				ephemeral: true,
+			});
+			return;
+		}
+
+		const channel = client.channels.cache.get(channelId);
+		if (!channel || !channel.isTextBased()) {
+			await interaction.reply({
+				content: "指定されたチャンネルは存在しないか、テキストチャンネルではありません。",
+				ephemeral: true,
+			});
+			return;
+		}
+
+		await interaction.reply({
+			content: `チャンネル名: ${channel}`,
+			ephemeral: true,
+		});
 	}
 });
 
