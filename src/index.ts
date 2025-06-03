@@ -23,7 +23,7 @@ const commands = [
 
 // REST APIクライアントを作成
 const rest = new REST({ version: "10" }).setToken(TOKEN);
-function logCommandExecution(interaction: ChatInputCommandInteraction) {
+async function logCommandExecution(interaction: ChatInputCommandInteraction) {
 	// コマンドを実行したユーザー情報を取得
 	const user = interaction.user;
 	// 実行されたコマンド名を取得
@@ -32,8 +32,24 @@ function logCommandExecution(interaction: ChatInputCommandInteraction) {
 	const channel = interaction.channel?.id ?? "DM";
 	// コマンドが実行されたサーバー（ギルド）IDを取得（DMの場合は"DM"と表示）
 	const guild = interaction.guild?.id ?? "DM";
+	const logMessage = `[COMMAND LOG] User: ${user.tag} (${user.id}), Command: /${command}, Guild: ${guild}, Channel: ${channel}`;
+
 	// ログとしてコマンド実行情報を出力
-	console.log(`[COMMAND LOG] User: ${user.tag} (${user.id}), Command: /${command}, Guild: ${guild}, Channel: ${channel}`);
+	console.log(logMessage);
+
+	// ギルド内のログチャンネルに送信
+	if (interaction.guild) {
+		const logChannel = interaction.guild.channels.cache.find((c) => c.name === "bot-logs" && c.isTextBased());
+		if (logChannel && logChannel.isTextBased()) {
+			try {
+				await logChannel.send(logMessage);
+			} catch (e) {
+				console.error("ログチャンネルへの送信に失敗:", e);
+			}
+		}
+	} else {
+		console.log("DMでのコマンド実行はログチャンネルに送信されません。");
+	}
 }
 // スラッシュコマンドを登録する関数
 async function registerCommands() {
